@@ -1,14 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
-source /app-info.sh
-
-env_var_names=$(secrethub env ls)
-echo "The following environment variables will be populated with secrets from SecretHub:"
-echo "$env_var_names"
-
-for var_name in $env_var_names; do
-	secret_value=$(secrethub env read $var_name)
+for var_secrets in $(doppler secrets download --no-file --format env-no-quotes); do
+  var_name=$(grep -o '^\w*' <<< $var_secrets)
+  secret_value=$(grep -o '[^=]*$' <<< $var_secrets)
 
 	# Escape percent signs and add a mask per line (see https://github.com/actions/runner/issues/161)
 	escaped_mask_value=$(echo "$secret_value" | sed -e 's/%/%25/g')
@@ -23,7 +18,7 @@ for var_name in $env_var_names; do
 		# A random 64 character string is used as the heredoc identifier, to make it practically
 		# impossible that this string appears in the secret.
 		random_heredoc_identifier=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 64 | head -n1)
-		
+
 		echo "$var_name<<${random_heredoc_identifier}" >> $GITHUB_ENV
 		echo "$secret_value" >> $GITHUB_ENV
 		echo "${random_heredoc_identifier}" >> $GITHUB_ENV
